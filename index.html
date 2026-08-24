@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>VIPER — bioluminescent snake arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="brand">
+      <h1 class="display">VIPER</h1>
+      <p>bioluminescent arcade</p>
+      <div class="sig">
+        <div class="sig-seg"></div><div class="sig-seg"></div><div class="sig-seg"></div><div class="sig-seg"></div><div class="sig-seg"></div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat high"><div class="label">High Score</div><div class="value" id="menu-highscore">0</div></div>
+      <div class="stat coin"><div class="label">Coins</div><div class="value" id="menu-coins">0 ¢</div></div>
+    </div>
+
+    <a href="game.html"><button class="btn primary" id="btn-play">▶ PLAY</button></a>
+    <div class="row-btns">
+      <a href="skins.html" style="flex:1"><button class="btn">🎨 Skins</button></a>
+      <a href="settings.html" style="flex:1"><button class="btn">⚙ Settings</button></a>
+    </div>
+
+    <div id="history-list" style="margin-top:14px;"></div>
+  </div>
+  <div class="site-footer">VIPER · a snake arcade · saved locally in this browser</div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+  document.getElementById("menu-highscore").textContent = save.highScore;
+  document.getElementById("menu-coins").textContent = fmtCoins(save.coins);
+
+  const hist = document.getElementById("history-list");
+  if (save.history.length === 0) {
+    hist.innerHTML = '<div class="empty-hint">No runs yet — play a round to start your record.</div>';
+  } else {
+    save.history.slice(0, 5).forEach(h => {
+      const row = document.createElement("div");
+      row.className = "history-row";
+      row.innerHTML = `<span>${h.score} pts</span><span>+${h.coins} ¢</span>`;
+      hist.appendChild(row);
+    });
+  }
+
+  document.getElementById("btn-play").addEventListener("click", () => { ensureAudio(); });
+</script>
+</body>
+</html>
