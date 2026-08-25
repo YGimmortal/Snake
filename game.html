@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Play — HORIZON SNAKE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="hud">
+      <div class="score-box">SCORE <span id="hud-score">0</span><small>BEST <span id="hud-best">0</span></small></div>
+      <div class="bonus-banner" id="bonus-banner"><span class="bonus-dot"></span><span id="bonus-text">Bonus 5.0s</span></div>
+      <div class="level-box">LV <span id="hud-level">1</span><small>LEVEL</small></div>
+    </div>
+
+    <div id="stage-wrap">
+      <canvas id="stage" width="480" height="480"></canvas>
+      <div class="fx-layer" id="fx-layer"></div>
+      <div class="combo-badge" id="combo-badge">COMBO ×2</div>
+      <div class="toast-layer" id="toast-layer"></div>
+
+      <div class="overlay" id="overlay-pause">
+        <h3>PAUSED</h3>
+        <p>Press resume or hit Esc / P</p>
+        <button class="btn primary" id="btn-resume">RESUME</button>
+        <button class="btn ghost" id="btn-quit-pause">Quit to menu</button>
+      </div>
+
+      <div class="overlay" id="overlay-gameover">
+        <h3 id="go-title">GAME OVER</h3>
+        <p id="go-sub">Score 0 · +0 ¢ earned</p>
+        <p class="ach-unlocked" id="go-achievements"></p>
+        <button class="btn primary" id="btn-again">PLAY AGAIN</button>
+        <button class="btn ghost" id="btn-quit-go">Quit to menu</button>
+      </div>
+    </div>
+
+    <div class="active-fx" id="active-fx"></div>
+
+    <div class="legend">
+      <span><i style="background:var(--gold)"></i>food +10</span>
+      <span><i style="background:var(--red)"></i>ember +50</span>
+      <span><i style="background:var(--sun)"></i>sunstone +80 & coins</span>
+      <span><i style="background:var(--blue)"></i>frost slow-mo</span>
+      <span><i style="background:var(--purple)"></i>food multiplier ×2</span>
+      <span><i style="background:var(--magenta)"></i>mega multiplier ×3</span>
+      <span><i style="background:var(--silver)"></i>coin orb +coins</span>
+      <span><i style="background:var(--shield)"></i>shield · absorbs 1 hit</span>
+      <span><i style="background:var(--gold)"></i>power cell · flat bonus pts</span>
+      <span><i style="background:var(--diamond)"></i>diamond · rare, big reward</span>
+    </div>
+    <div class="hint">Arrows / WASD to move · swipe / drag controls · P to pause · eat fast for combos</div>
+  </div>
+</div>
+
+<script src="assets/common.js"></script>
+<script src="assets/game.js"></script>
+</body>
+</html>
