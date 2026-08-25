@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Settings — HORIZON SNAKE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="back-row">
+      <a href="index.html"><button class="icon-btn">←</button></a>
+      <h2>SETTINGS</h2>
+      <div style="width:38px"></div>
+    </div>
+
+    <div class="setting">
+      <div><div class="s-label">Game speed</div><div class="s-sub">Affects tick rate</div></div>
+      <div class="segmented" id="speed-seg">
+        <button data-val="slow">Slow</button>
+        <button data-val="normal">Normal</button>
+        <button data-val="fast">Fast</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <div><div class="s-label">Wrap walls</div><div class="s-sub">Pass through edges instead of dying</div></div>
+      <div class="toggle" id="toggle-wrap"><div class="knob"></div></div>
+    </div>
+
+    <div class="setting">
+      <div><div class="s-label">Hazard mode</div><div class="s-sub">Obstacles appear from level 3 onward</div></div>
+      <div class="toggle" id="toggle-hazards"><div class="knob"></div></div>
+    </div>
+
+    <div class="setting">
+      <div><div class="s-label">Sound effects</div><div class="s-sub">Synth blips on eat / bonus / crash</div></div>
+      <div class="toggle" id="toggle-sound"><div class="knob"></div></div>
+    </div>
+
+    <div class="setting">
+      <div><div class="s-label">Screen shake</div><div class="s-sub">Kick on bonus pickups</div></div>
+      <div class="toggle" id="toggle-shake"><div class="knob"></div></div>
+    </div>
+
+    <div class="back-row" style="margin-top:20px;">
+      <h2>ACHIEVEMENTS</h2>
+      <span class="ach-count" id="ach-count-settings">0/10</span>
+    </div>
+    <div class="ach-grid" id="ach-grid"></div>
+
+    <button class="btn danger" id="btn-reset" style="margin-top:18px;">Reset all progress</button>
+  </div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+  function applySettingsToUI() {
+    document.querySelectorAll("#speed-seg button").forEach(b => b.classList.toggle("active", b.dataset.val === save.settings.speed));
+    document.getElementById("toggle-wrap").classList.toggle("on", save.settings.wrap);
+    document.getElementById("toggle-hazards").classList.toggle("on", save.settings.hazards);
+    document.getElementById("toggle-sound").classList.toggle("on", save.settings.sound);
+    document.getElementById("toggle-shake").classList.toggle("on", save.settings.shake);
+  }
+  applySettingsToUI();
+
+  function buildAchievements() {
+    const grid = document.getElementById("ach-grid");
+    grid.innerHTML = "";
+    ACHIEVEMENTS.forEach(a => {
+      const unlocked = save.achievements.includes(a.id);
+      const el = document.createElement("div");
+      el.className = "ach-item" + (unlocked ? " unlocked" : "");
+      el.title = a.name + " — " + a.desc;
+      el.textContent = a.icon;
+      grid.appendChild(el);
+    });
+    document.getElementById("ach-count-settings").textContent = save.achievements.length + "/" + ACHIEVEMENTS.length;
+  }
+  buildAchievements();
+
+  document.querySelectorAll("#speed-seg button").forEach(b => {
+    b.addEventListener("click", () => { ensureAudio(); save.settings.speed = b.dataset.val; applySettingsToUI(); persist(); sfx.select(); });
+  });
+  document.getElementById("toggle-wrap").addEventListener("click", () => { ensureAudio(); save.settings.wrap = !save.settings.wrap; applySettingsToUI(); persist(); sfx.select(); });
+  document.getElementById("toggle-hazards").addEventListener("click", () => { ensureAudio(); save.settings.hazards = !save.settings.hazards; applySettingsToUI(); persist(); sfx.select(); });
+  document.getElementById("toggle-sound").addEventListener("click", () => { ensureAudio(); save.settings.sound = !save.settings.sound; applySettingsToUI(); persist(); });
+  document.getElementById("toggle-shake").addEventListener("click", () => { ensureAudio(); save.settings.shake = !save.settings.shake; applySettingsToUI(); persist(); sfx.select(); });
+
+  document.getElementById("btn-reset").addEventListener("click", () => {
+    if (confirm("Reset high score, coins, skins, achievements and settings? This can't be undone.")) {
+      save = JSON.parse(JSON.stringify(DEFAULT_SAVE));
+      persist();
+      applySettingsToUI();
+      buildAchievements();
+    }
+  });
+</script>
+</body>
+</html>
