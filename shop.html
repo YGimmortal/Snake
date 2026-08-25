@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Shop — HORIZON SNAKE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="back-row">
+      <a href="index.html"><button class="icon-btn">←</button></a>
+      <h2>SHOP</h2>
+      <div style="width:38px"></div>
+    </div>
+    <div class="stat coin" style="margin-bottom:14px;"><div class="label">Balance</div><div class="value" id="shop-coins">0 ¢</div></div>
+
+    <div class="tabs" id="shop-tabs">
+      <button data-tab="skins" class="active">🎨 Skins</button>
+      <button data-tab="backgrounds">🖼️ Backgrounds</button>
+      <button data-tab="trails">💫 Trails</button><button data-tab="foods">🍎 Foods</button>
+    </div>
+
+    <div id="tab-skins">
+      <div class="skin-grid" id="skin-grid"></div>
+    </div>
+
+    <div id="tab-backgrounds" style="display:none;">
+      <p class="upload-hint">Own any background for 4000 ¢ and upload your own image — it's resized &amp; compressed to fit, then saved to this browser only.</p>
+      <input type="file" accept="image/*" id="bg-upload-input" class="bg-upload-input" />
+      <div class="skin-grid" id="bg-grid"></div>
+    </div>
+
+    <div id="tab-trails" style="display:none;">
+      <p class="upload-hint">Trails leave a faint particle streak behind your snake while you play.</p>
+      <div class="skin-grid" id="trail-grid"></div>
+    </div>
+    <div id="tab-foods" style="display:none;"><div class="skin-grid" id="food-grid"></div></div>
+  </div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+  function shake(el) {
+    el.animate([{ transform: "translateX(0)" }, { transform: "translateX(-6px)" }, { transform: "translateX(6px)" }, { transform: "translateX(0)" }], { duration: 250 });
+  }
+  function powerLabel(power) {
+    if (!power) return "";
+    if (power.type === "score") return "⚡ +" + Math.round(power.value * 100) + "% score";
+    if (power.type === "coin") return "🪙 +" + Math.round(power.value * 100) + "% coins";
+    if (power.type === "combo") return "🔥 +" + (power.value / 1000).toFixed(1) + "s combo window";
+    return "";
+  }
+  function refreshCoins() { document.getElementById("shop-coins").textContent = fmtCoins(save.coins); }
+
+  /* ---------------- SKINS ---------------- */
+  function buildSkinGrid() {
+    const grid = document.getElementById("skin-grid");
+    grid.innerHTML = "";
+    SKINS.forEach(skin => {
+      const owned = save.ownedSkins.includes(skin.id);
+      const selected = save.selectedSkin === skin.id;
+      const card = document.createElement("div");
+      card.className = "skin-card" + (selected ? " selected" : "");
+      card.innerHTML = `
+        <canvas></canvas>
+        <div class="skin-name">${skin.name}</div>
+        <div class="skin-tier">${skin.tier}</div>
+        ${skin.power ? `<div class="skin-power">${powerLabel(skin.power)}</div>` : ``}
+        ${owned ? `<div class="skin-owned">${selected ? "EQUIPPED" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${skin.price} ¢ · tap to buy</div>`}
+        ${!owned ? `<div class="skin-lock">🔒</div>` : ``}
+      `;
+      card.addEventListener("click", () => {
+        ensureAudio(); sfx.select();
+        if (owned) {
+          save.selectedSkin = skin.id;
+          persist(); buildSkinGrid();
+        } else if (save.coins >= skin.price) {
+          save.coins -= skin.price;
+          save.ownedSkins.push(skin.id);
+          save.selectedSkin = skin.id;
+          persist(); buildSkinGrid(); refreshCoins();
+        } else { shake(card); }
+      });
+      grid.appendChild(card);
+      drawSkinPreview(card.querySelector("canvas"), skin);
+    });
+  }
+
+  /* ---------------- BACKGROUNDS ---------------- */
+  function buildBgGrid() {
+    const grid = document.getElementById("bg-grid");
+    grid.innerHTML = "";
+    BACKGROUNDS.forEach(bg => {
+      const owned = bg.type === "upload" ? !!save.customBackgroundImage : save.ownedBackgrounds.includes(bg.id);
+      const selected = save.selectedBackground === bg.id;
+      const card = document.createElement("div");
+      card.className = "bg-card" + (selected ? " selected" : "");
+      let swatchStyle;
+      if (bg.type === "upload") {
+        swatchStyle = save.customBackgroundImage ? `background-image:url('${save.customBackgroundImage}')` : `background:linear-gradient(135deg,#35e7ff,#8b2ff2)`;
+      } else {
+        swatchStyle = `background:linear-gradient(160deg, ${bg.stops[0]}, ${bg.stops[1]}, ${bg.stops[2]})`;
+      }
+      card.innerHTML = `
+        <div class="bg-swatch" style="${swatchStyle}"></div>
+        <div class="skin-name">${bg.name}</div>
+        ${bg.power ? `<div class="skin-power">${powerLabel(bg.power)}</div>` : ``}
+        ${owned ? `<div class="skin-owned">${selected ? "EQUIPPED" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${bg.price} ¢ · tap to buy</div>`}
+        ${!owned ? `<div class="skin-lock">🔒</div>` : ``}
+      `;
+      card.addEventListener("click", () => {
+        ensureAudio(); sfx.select();
+        if (bg.type === "upload") {
+          if (!owned) {
+            if (save.coins < bg.price) { shake(card); return; }
+            document.getElementById("bg-upload-input").click();
+            return;
+          }
+          save.selectedBackground = "custom";
+          persist(); buildBgGrid();
+          return;
+        }
+        if (owned) {
+          save.selectedBackground = bg.id;
+          persist(); buildBgGrid();
+        } else if (save.coins >= bg.price) {
+          save.coins -= bg.price;
+          save.ownedBackgrounds.push(bg.id);
+          save.selectedBackground = bg.id;
+          persist(); buildBgGrid(); refreshCoins();
+        } else { shake(card); }
+      });
+      grid.appendChild(card);
+    });
+  }
+  document.getElementById("bg-upload-input").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    readImageFileAsBackground(file, 640, (err, dataUrl) => {
+      if (err) { alert("Couldn't load that image."); return; }
+      save.coins -= 4000;
+      save.customBackgroundImage = dataUrl;
+      save.selectedBackground = "custom";
+      persist();
+      refreshCoins();
+      buildBgGrid();
+    });
+    e.target.value = "";
+  });
+
+  /* ---------------- TRAILS ---------------- */
+  function buildTrailGrid() {
+    const grid = document.getElementById("trail-grid");
+    grid.innerHTML = "";
+    TRAILS.forEach(trail => {
+      const owned = save.ownedTrails.includes(trail.id);
+      const selected = save.selectedTrail === trail.id;
+      const card = document.createElement("div");
+      card.className = "skin-card" + (selected ? " selected" : "");
+      const swatch = trail.color === "rainbow" ? "linear-gradient(90deg,#35e7ff,#8b5cf6,#ff2fd6)" : (trail.color || "#161a34");
+      card.innerHTML = `
+        <div class="bg-swatch" style="background:${swatch};height:40px;"></div>
+        <div class="skin-name">${trail.name}</div>
+        ${owned ? `<div class="skin-owned">${selected ? "EQUIPPED" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${trail.price} ¢ · tap to buy</div>`}
+        ${!owned ? `<div class="skin-lock">🔒</div>` : ``}
+      `;
+      card.addEventListener("click", () => {
+        ensureAudio(); sfx.select();
+        if (owned) {
+          save.selectedTrail = trail.id;
+          persist(); buildTrailGrid();
+        } else if (save.coins >= trail.price) {
+          save.coins -= trail.price;
+          save.ownedTrails.push(trail.id);
+          save.selectedTrail = trail.id;
+          persist(); buildTrailGrid(); refreshCoins();
+        } else { shake(card); }
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  document.querySelectorAll("#shop-tabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ensureAudio(); sfx.select();
+      document.querySelectorAll("#shop-tabs button").forEach(b => b.classList.toggle("active", b === btn));
+      ["skins", "backgrounds", "trails"].forEach(t => {
+        document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "" : "none";
+      });
+    });
+  });
+
+  refreshCoins();
+  buildSkinGrid();
+  buildBgGrid();
+  buildTrailGrid();
+
+const FOODS=[{id:'apple',name:'Apple',score:1,price:0},{id:'banana',name:'Banana',score:5,price:100},{id:'mango',name:'Mango',score:8,price:150},{id:'orange',name:'Orange',score:10,price:200},{id:'grapes',name:'Grapes',score:12,price:250},{id:'melon',name:'Melon',score:15,price:300}];
+save.selectedFood=save.selectedFood||'apple'; save.ownedFoods=save.ownedFoods||['apple'];
+function buildFoodGrid(){const g=document.getElementById('food-grid'); if(!g) return; g.innerHTML=''; FOODS.forEach(f=>{const owned=save.ownedFoods.includes(f.id); const sel=save.selectedFood===f.id; const c=document.createElement('div'); c.className='skin-card'+(sel?' selected':''); c.innerHTML=`<div class="skin-name">🍎 ${f.name}</div><div class="skin-power">Score +${f.score}</div><div>${owned?(sel?'EQUIPPED':'OWNED'):(f.price+' ¢')}</div>`; c.onclick=()=>{if(owned){save.selectedFood=f.id}else if(save.coins>=f.price){save.coins-=f.price;save.ownedFoods.push(f.id);save.selectedFood=f.id;refreshCoins()} persist(); buildFoodGrid();}; g.appendChild(c);});}
+</script>
+</body>
+</html>
