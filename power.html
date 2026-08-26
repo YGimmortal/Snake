@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Power Shop — HORIZON SNAKE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .power-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .power-card{ background:var(--surface2); border:1px solid var(--line-soft); border-radius:14px; padding:12px; text-align:center; cursor:pointer; position:relative; }
+  .power-card.equipped{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 0 20px -6px rgba(53,231,255,0.6); }
+  .power-card .lvl-num{ font-size:22px; margin-bottom:4px; }
+  .power-hero{ text-align:center; margin-bottom:14px; }
+  .power-hero .icon{ font-size:38px; }
+  .power-hero .desc{ font-size:10.5px; color:var(--muted); line-height:1.5; margin-top:6px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="back-row">
+      <a href="shop.html"><button class="icon-btn">←</button></a>
+      <h2 id="power-title">POWER</h2>
+      <div style="width:38px"></div>
+    </div>
+    <div class="stat coin" style="margin-bottom:14px;"><div class="label">Balance</div><div class="value" id="power-coins">0 ¢</div></div>
+
+    <div class="power-hero">
+      <div class="icon" id="power-icon">⚡</div>
+      <div class="desc" id="power-desc"></div>
+    </div>
+
+    <div class="power-grid" id="power-level-grid"></div>
+  </div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+  function shake(el) {
+    el.animate([{ transform: "translateX(0)" }, { transform: "translateX(-6px)" }, { transform: "translateX(6px)" }, { transform: "translateX(0)" }], { duration: 250 });
+  }
+
+  const params = new URLSearchParams(location.search);
+  const cat = powerCatById(params.get("cat"));
+
+  if (!cat) {
+    document.getElementById("app").innerHTML = `
+      <div class="panel">
+        <div class="back-row"><a href="shop.html"><button class="icon-btn">←</button></a><h2>NOT FOUND</h2><div style="width:38px"></div></div>
+        <p class="upload-hint">That power doesn't exist. Head back to the shop.</p>
+      </div>`;
+  } else {
+    document.getElementById("power-title").textContent = cat.name.toUpperCase();
+    document.getElementById("power-icon").textContent = cat.icon;
+    document.getElementById("power-desc").textContent = cat.desc;
+
+    function refreshCoins() { document.getElementById("power-coins").textContent = fmtCoins(save.coins); }
+
+    function buildLevelGrid() {
+      const st = getPowerState(cat.id);
+      const grid = document.getElementById("power-level-grid");
+      grid.innerHTML = "";
+      for (let level = 1; level <= 10; level++) {
+        const owned = st.owned.includes(level);
+        const equipped = st.equipped === level;
+        const price = powerLevelPrice(cat, level);
+        const card = document.createElement("div");
+        card.className = "power-card" + (equipped ? " equipped" : "");
+        card.innerHTML = `
+          <div class="lvl-num">${cat.icon} Lv.${level}</div>
+          <div class="skin-power">${powerLevelEffectLabel(cat, level)}</div>
+          ${owned ? `<div class="skin-owned">${equipped ? "EQUIPPED · tap to unequip" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${price} ¢ · tap to buy</div>`}
+          ${!owned ? `<div class="skin-lock">🔒</div>` : ``}
+        `;
+        card.addEventListener("click", () => {
+          ensureAudio(); sfx.select();
+          if (owned) {
+            st.equipped = equipped ? 0 : level;
+            persist(); buildLevelGrid();
+          } else if (save.coins >= price) {
+            save.coins -= price;
+            st.owned.push(level);
+            st.equipped = level;
+            persist(); buildLevelGrid(); refreshCoins();
+            sfx.power();
+          } else { shake(card); }
+        });
+        grid.appendChild(card);
+      }
+    }
+
+    refreshCoins();
+    buildLevelGrid();
+  }
+</script>
+</body>
+</html>

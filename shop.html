@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Shop — HORIZON SNAKE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="back-row">
+      <a href="index.html"><button class="icon-btn">←</button></a>
+      <h2>SHOP</h2>
+      <div style="width:38px"></div>
+    </div>
+    <div class="stat coin" style="margin-bottom:14px;"><div class="label">Balance</div><div class="value" id="shop-coins">0 ¢</div></div>
+
+    <div class="tabs" id="shop-tabs">
+      <button data-tab="skins" class="active">🎨 Skins</button>
+      <button data-tab="backgrounds">🖼️ BGs</button>
+      <button data-tab="trails">💫 Trails</button>
+      <button data-tab="foods">🍎 Food</button>
+      <button data-tab="powers">⚡ Powers</button>
+    </div>
+
+    <div id="tab-skins">
+      <div class="skin-grid" id="skin-grid"></div>
+    </div>
+
+    <div id="tab-backgrounds" style="display:none;">
+      <p class="upload-hint">Own any background for 4000 ¢ and upload your own image — resized &amp; compressed, saved in this browser only.</p>
+      <input type="file" accept="image/*" id="bg-upload-input" class="bg-upload-input" />
+      <div class="skin-grid" id="bg-grid"></div>
+    </div>
+
+    <div id="tab-trails" style="display:none;">
+      <p class="upload-hint">Trails leave a particle streak behind your snake. Every trail has a power bonus.</p>
+      <div class="skin-grid" id="trail-grid"></div>
+    </div>
+
+    <div id="tab-foods" style="display:none;">
+      <p class="upload-hint">Food sets base points per bite. Default is Apple (1 pt). Higher foods score more and often add power.</p>
+      <div class="skin-grid" id="food-grid"></div>
+    </div>
+
+    <div id="tab-powers" style="display:none;">
+      <p class="upload-hint">The Power Shop — buy and equip powers with coins. Each power has 10 levels; tap a power to open its shop and choose a level.</p>
+      <div class="skin-grid" id="power-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+  function shake(el) {
+    el.animate([{ transform: "translateX(0)" }, { transform: "translateX(-6px)" }, { transform: "translateX(6px)" }, { transform: "translateX(0)" }], { duration: 250 });
+  }
+  function powerLabel(power) {
+    if (!power) return "";
+    if (power.type === "score") return "⚡ +" + Math.round(power.value * 100) + "% score";
+    if (power.type === "coin") return "🪙 +" + Math.round(power.value * 100) + "% coins";
+    if (power.type === "combo") return "🔥 +" + (power.value / 1000).toFixed(1) + "s combo";
+    return "";
+  }
+  function refreshCoins() { document.getElementById("shop-coins").textContent = fmtCoins(save.coins); }
+
+  /* ---------------- SKINS ---------------- */
+  function buildSkinGrid() {
+    const grid = document.getElementById("skin-grid");
+    grid.innerHTML = "";
+    SKINS.forEach(skin => {
+      const owned = save.ownedSkins.includes(skin.id);
+      const selected = save.selectedSkin === skin.id;
+      const card = document.createElement("div");
+      card.className = "skin-card" + (selected ? " selected" : "");
+      card.innerHTML = `
+        <canvas class="preview-canvas"></canvas>
+        <div class="skin-name">${skin.name}</div>
+        <div class="skin-tier">${skin.tier}</div>
+        ${skin.power ? `<div class="skin-power">${powerLabel(skin.power)}</div>` : ``}
+        ${owned ? `<div class="skin-owned">${selected ? "EQUIPPED" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${skin.price} ¢ · tap to buy</div>`}
+        ${!owned ? `<div class="skin-lock">🔒</div>` : ``}
+      `;
+      card.addEventListener("click", () => {
+        ensureAudio(); sfx.select();
+        if (owned) {
+          save.selectedSkin = skin.id;
+          persist(); buildSkinGrid();
+        } else if (save.coins >= skin.price) {
+          save.coins -= skin.price;
+          save.ownedSkins.push(skin.id);
+          save.selectedSkin = skin.id;
+          persist(); buildSkinGrid(); refreshCoins();
+        } else { shake(card); }
+      });
+      grid.appendChild(card);
+      drawSkinPreview(card.querySelector("canvas"), skin);
+    });
+  }
+
+  /* ---------------- BACKGROUNDS (fixed preview) ---------------- */
+  function buildBgGrid() {
+    const grid = document.getElementById("bg-grid");
+    grid.innerHTML = "";
+    BACKGROUNDS.forEach(bg => {
+      const owned = bg.type === "upload" ? !!save.customBackgroundImage : save.ownedBackgrounds.includes(bg.id);
+      const selected = save.selectedBackground === bg.id;
+      const card = document.createElement("div");
+      card.className = "bg-card" + (selected ? " selected" : "");
+      let swatchStyle = "";
+      if (bg.type === "upload" && save.customBackgroundImage) {
+        swatchStyle = `background-image:url('${save.customBackgroundImage}');background-size:cover;background-position:center;`;
+      }
+      card.innerHTML = `
+        ${swatchStyle ? `<div class="bg-swatch preview-swatch" style="${swatchStyle}"></div>` : `<canvas class="bg-swatch preview-swatch bg-canvas"></canvas>`}
+        <div class="skin-name">${bg.name}</div>
+        ${bg.power ? `<div class="skin-power">${powerLabel(bg.power)}</div>` : ``}
+        ${owned ? `<div class="skin-owned">${selected ? "EQUIPPED" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${bg.price} ¢ · tap to buy</div>`}
+        ${!owned ? `<div class="skin-lock">🔒</div>` : ``}
+      `;
+      card.addEventListener("click", () => {
+        ensureAudio(); sfx.select();
+        if (bg.type === "upload") {
+          if (!owned) {
+            if (save.coins < bg.price) { shake(card); return; }
+            document.getElementById("bg-upload-input").click();
+            return;
+          }
+          save.selectedBackground = "custom";
+          persist(); buildBgGrid();
+          return;
+        }
+        if (owned) {
+          save.selectedBackground = bg.id;
+          persist(); buildBgGrid();
+        } else if (save.coins >= bg.price) {
+          save.coins -= bg.price;
+          save.ownedBackgrounds.push(bg.id);
+          save.selectedBackground = bg.id;
+          persist(); buildBgGrid(); refreshCoins();
+        } else { shake(card); }
+      });
+      grid.appendChild(card);
+      const bgCanvas = card.querySelector(".bg-canvas");
+      if (bgCanvas) {
+        const bctx = bgCanvas.getContext("2d");
+        const bw = bgCanvas.width = bgCanvas.clientWidth * 2 || 200, bh = bgCanvas.height = bgCanvas.clientHeight * 2 || 100;
+        if (bg.type === "upload") {
+          const g = bctx.createLinearGradient(0, 0, bw, bh);
+          g.addColorStop(0, "#35e7ff"); g.addColorStop(1, "#8b2ff2");
+          bctx.fillStyle = g; bctx.fillRect(0, 0, bw, bh);
+        } else {
+          const g = bctx.createLinearGradient(0, 0, 0, bh);
+          g.addColorStop(0, bg.stops[0]); g.addColorStop(0.5, bg.stops[1]); g.addColorStop(1, bg.stops[2]);
+          bctx.fillStyle = g; bctx.fillRect(0, 0, bw, bh);
+          if (bg.pattern) paintBackgroundMotif(bctx, bw, bh, bg);
+        }
+      }
+    });
+  }
+  document.getElementById("bg-upload-input").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    readImageFileAsBackground(file, 640, (err, dataUrl) => {
+      if (err) { alert("Couldn't load that image."); return; }
+      save.coins -= 4000;
+      save.customBackgroundImage = dataUrl;
+      save.selectedBackground = "custom";
+      persist();
+      refreshCoins();
+      buildBgGrid();
+    });
+    e.target.value = "";
+  });
+
+  /* ---------------- TRAILS (animated preview) ---------------- */
+  function drawTrailPreview(canvas, trail) {
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width = canvas.clientWidth * 2 || 160;
+    const h = canvas.height = canvas.clientHeight * 2 || 80;
+    let t = 0;
+    function frame() {
+      if (!canvas.isConnected) return;
+      t += 0.08;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#0a0c1a";
+      ctx.fillRect(0, 0, w, h);
+      if (!trail.color) {
+        ctx.fillStyle = "#3a4060";
+        ctx.font = "12px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("none", w / 2, h / 2 + 4);
+        return;
+      }
+      const n = 12;
+      for (let i = 0; i < n; i++) {
+        const x = (w * 0.15) + (i / (n - 1)) * w * 0.7;
+        const y = h / 2 + Math.sin(t + i * 0.45) * 10;
+        const alpha = 0.25 + (i / n) * 0.75;
+        let color = trail.color;
+        if (color === "rainbow") color = `hsl(${(t * 40 + i * 28) % 360} 90% 65%)`;
+        ctx.beginPath();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.arc(x, y, 3 + (i / n) * 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    }
+    frame();
+  }
+
+  function buildTrailGrid() {
+    const grid = document.getElementById("trail-grid");
+    grid.innerHTML = "";
+    TRAILS.forEach(trail => {
+      const owned = save.ownedTrails.includes(trail.id);
+      const selected = save.selectedTrail === trail.id;
+      const card = document.createElement("div");
+      card.className = "skin-card" + (selected ? " selected" : "");
+      card.innerHTML = `
+        <canvas class="preview-canvas trail-preview"></canvas>
+        <div class="skin-name">${trail.name}</div>
+        ${trail.power ? `<div class="skin-power">${powerLabel(trail.power)}</div>` : ``}
+        ${owned ? `<div class="skin-owned">${selected ? "EQUIPPED" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${trail.price} ¢ · tap to buy</div>`}
+        ${!owned ? `<div class="skin-lock">🔒</div>` : ``}
+      `;
+      card.addEventListener("click", () => {
+        ensureAudio(); sfx.select();
+        if (owned) {
+          save.selectedTrail = trail.id;
+          persist(); buildTrailGrid();
+        } else if (save.coins >= trail.price) {
+          save.coins -= trail.price;
+          save.ownedTrails.push(trail.id);
+          save.selectedTrail = trail.id;
+          persist(); buildTrailGrid(); refreshCoins();
+        } else { shake(card); }
+      });
+      grid.appendChild(card);
+      drawTrailPreview(card.querySelector("canvas"), trail);
+    });
+  }
+
+  /* ---------------- FOODS ---------------- */
+  function buildFoodGrid() {
+    const grid = document.getElementById("food-grid");
+    grid.innerHTML = "";
+    FOODS.forEach(food => {
+      const owned = save.ownedFoods.includes(food.id);
+      const selected = save.selectedFood === food.id;
+      const card = document.createElement("div");
+      card.className = "skin-card" + (selected ? " selected" : "");
+      card.innerHTML = `
+        <div class="food-preview" style="background:radial-gradient(circle at 40% 35%, ${food.color}aa, ${food.color}22);">
+          <span class="food-emoji">${food.emoji}</span>
+        </div>
+        <div class="skin-name">${food.name}</div>
+        <div class="skin-tier">+${food.pts} pts / bite</div>
+        ${food.power ? `<div class="skin-power">${powerLabel(food.power)}</div>` : ``}
+        ${owned ? `<div class="skin-owned">${selected ? "EQUIPPED" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${food.price} ¢ · tap to buy</div>`}
+        ${!owned ? `<div class="skin-lock">🔒</div>` : ``}
+      `;
+      card.addEventListener("click", () => {
+        ensureAudio(); sfx.select();
+        if (owned) {
+          save.selectedFood = food.id;
+          persist(); buildFoodGrid();
+        } else if (save.coins >= food.price) {
+          save.coins -= food.price;
+          save.ownedFoods.push(food.id);
+          save.selectedFood = food.id;
+          persist(); buildFoodGrid(); refreshCoins();
+        } else { shake(card); }
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  /* ---------------- POWERS (hub — links out to a per-power shop page) ---------------- */
+  function buildPowerGrid() {
+    const grid = document.getElementById("power-grid");
+    grid.innerHTML = "";
+    POWER_CATEGORIES.forEach(cat => {
+      const st = getPowerState(cat.id);
+      const card = document.createElement("a");
+      card.href = "power.html?cat=" + encodeURIComponent(cat.id);
+      card.className = "skin-card";
+      card.style.display = "block";
+      card.style.textDecoration = "none";
+      card.style.color = "inherit";
+      card.innerHTML = `
+        <div class="food-preview" style="background:radial-gradient(circle at 40% 35%, rgba(53,231,255,0.35), rgba(139,92,246,0.12)); font-size:26px; height:56px; display:flex; align-items:center; justify-content:center;">${cat.icon}</div>
+        <div class="skin-name">${cat.name}</div>
+        <div class="skin-tier">${st.equipped ? "Level " + st.equipped + " equipped" : (st.owned.length ? st.owned.length + " level(s) owned" : "Locked")}</div>
+        <div class="skin-price">${st.owned.length ? "tap to manage" : powerLevelPrice(cat, 1) + " ¢ · tap to view"}</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  document.querySelectorAll("#shop-tabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ensureAudio(); sfx.select();
+      document.querySelectorAll("#shop-tabs button").forEach(b => b.classList.toggle("active", b === btn));
+      ["skins", "backgrounds", "trails", "foods", "powers"].forEach(t => {
+        document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "" : "none";
+      });
+    });
+  });
+
+  refreshCoins();
+  buildSkinGrid();
+  buildBgGrid();
+  buildTrailGrid();
+  buildFoodGrid();
+  buildPowerGrid();
+</script>
+</body>
+</html>
