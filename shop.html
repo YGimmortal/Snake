@@ -24,7 +24,6 @@
       <button data-tab="backgrounds">🖼️ BGs</button>
       <button data-tab="trails">💫 Trails</button>
       <button data-tab="foods">🍎 Food</button>
-      <button data-tab="powers">⚡ Powers</button>
     </div>
 
     <div id="tab-skins">
@@ -45,11 +44,6 @@
     <div id="tab-foods" style="display:none;">
       <p class="upload-hint">Food sets base points per bite. Default is Apple (1 pt). Higher foods score more and often add power.</p>
       <div class="skin-grid" id="food-grid"></div>
-    </div>
-
-    <div id="tab-powers" style="display:none;">
-      <p class="upload-hint">The Power Shop — buy and equip powers with coins. Each power has 10 levels; tap a power to open its shop and choose a level.</p>
-      <div class="skin-grid" id="power-grid"></div>
     </div>
   </div>
 </div>
@@ -111,12 +105,16 @@
       const selected = save.selectedBackground === bg.id;
       const card = document.createElement("div");
       card.className = "bg-card" + (selected ? " selected" : "");
-      let swatchStyle = "";
-      if (bg.type === "upload" && save.customBackgroundImage) {
-        swatchStyle = `background-image:url('${save.customBackgroundImage}');background-size:cover;background-position:center;`;
+      let swatchStyle;
+      if (bg.type === "upload") {
+        swatchStyle = save.customBackgroundImage
+          ? `background-image:url('${save.customBackgroundImage}');background-size:cover;background-position:center;`
+          : `background:linear-gradient(135deg,#35e7ff,#8b2ff2)`;
+      } else {
+        swatchStyle = `background:linear-gradient(160deg, ${bg.stops[0]}, ${bg.stops[1]}, ${bg.stops[2]})`;
       }
       card.innerHTML = `
-        ${swatchStyle ? `<div class="bg-swatch preview-swatch" style="${swatchStyle}"></div>` : `<canvas class="bg-swatch preview-swatch bg-canvas"></canvas>`}
+        <div class="bg-swatch preview-swatch" style="${swatchStyle}"></div>
         <div class="skin-name">${bg.name}</div>
         ${bg.power ? `<div class="skin-power">${powerLabel(bg.power)}</div>` : ``}
         ${owned ? `<div class="skin-owned">${selected ? "EQUIPPED" : "OWNED · tap to equip"}</div>` : `<div class="skin-price">${bg.price} ¢ · tap to buy</div>`}
@@ -145,21 +143,6 @@
         } else { shake(card); }
       });
       grid.appendChild(card);
-      const bgCanvas = card.querySelector(".bg-canvas");
-      if (bgCanvas) {
-        const bctx = bgCanvas.getContext("2d");
-        const bw = bgCanvas.width = bgCanvas.clientWidth * 2 || 200, bh = bgCanvas.height = bgCanvas.clientHeight * 2 || 100;
-        if (bg.type === "upload") {
-          const g = bctx.createLinearGradient(0, 0, bw, bh);
-          g.addColorStop(0, "#35e7ff"); g.addColorStop(1, "#8b2ff2");
-          bctx.fillStyle = g; bctx.fillRect(0, 0, bw, bh);
-        } else {
-          const g = bctx.createLinearGradient(0, 0, 0, bh);
-          g.addColorStop(0, bg.stops[0]); g.addColorStop(0.5, bg.stops[1]); g.addColorStop(1, bg.stops[2]);
-          bctx.fillStyle = g; bctx.fillRect(0, 0, bw, bh);
-          if (bg.pattern) paintBackgroundMotif(bctx, bw, bh, bg);
-        }
-      }
     });
   }
   document.getElementById("bg-upload-input").addEventListener("change", (e) => {
@@ -284,33 +267,11 @@
     });
   }
 
-  /* ---------------- POWERS (hub — links out to a per-power shop page) ---------------- */
-  function buildPowerGrid() {
-    const grid = document.getElementById("power-grid");
-    grid.innerHTML = "";
-    POWER_CATEGORIES.forEach(cat => {
-      const st = getPowerState(cat.id);
-      const card = document.createElement("a");
-      card.href = "power.html?cat=" + encodeURIComponent(cat.id);
-      card.className = "skin-card";
-      card.style.display = "block";
-      card.style.textDecoration = "none";
-      card.style.color = "inherit";
-      card.innerHTML = `
-        <div class="food-preview" style="background:radial-gradient(circle at 40% 35%, rgba(53,231,255,0.35), rgba(139,92,246,0.12)); font-size:26px; height:56px; display:flex; align-items:center; justify-content:center;">${cat.icon}</div>
-        <div class="skin-name">${cat.name}</div>
-        <div class="skin-tier">${st.equipped ? "Level " + st.equipped + " equipped" : (st.owned.length ? st.owned.length + " level(s) owned" : "Locked")}</div>
-        <div class="skin-price">${st.owned.length ? "tap to manage" : powerLevelPrice(cat, 1) + " ¢ · tap to view"}</div>
-      `;
-      grid.appendChild(card);
-    });
-  }
-
   document.querySelectorAll("#shop-tabs button").forEach(btn => {
     btn.addEventListener("click", () => {
       ensureAudio(); sfx.select();
       document.querySelectorAll("#shop-tabs button").forEach(b => b.classList.toggle("active", b === btn));
-      ["skins", "backgrounds", "trails", "foods", "powers"].forEach(t => {
+      ["skins", "backgrounds", "trails", "foods"].forEach(t => {
         document.getElementById("tab-" + t).style.display = (t === btn.dataset.tab) ? "" : "none";
       });
     });
@@ -321,7 +282,6 @@
   buildBgGrid();
   buildTrailGrid();
   buildFoodGrid();
-  buildPowerGrid();
 </script>
 </body>
 </html>
