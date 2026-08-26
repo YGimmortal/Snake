@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Advancements — HORIZON SNAKE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="back-row">
+      <a href="index.html"><button class="icon-btn">←</button></a>
+      <h2>ADVANCEMENTS</h2>
+      <div style="width:38px"></div>
+    </div>
+    <div class="stat coin" style="margin-bottom:14px;"><div class="label">Balance</div><div class="value" id="ach-coins">0 ¢</div></div>
+    <div class="ach-strip" style="cursor:default;margin-bottom:14px;">
+      <span>Unlocked</span>
+      <span class="ach-count" id="ach-count">0/10</span>
+    </div>
+    <div class="ach-list" id="ach-list"></div>
+  </div>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+  function buildList() {
+    document.getElementById("ach-coins").textContent = fmtCoins(save.coins);
+    document.getElementById("ach-count").textContent = save.achievements.length + "/" + ACHIEVEMENTS.length;
+    const list = document.getElementById("ach-list");
+    list.innerHTML = "";
+    ACHIEVEMENTS.forEach(a => {
+      const unlocked = save.achievements.includes(a.id);
+      const claimed = save.claimedAdvancements.includes(a.id);
+      const row = document.createElement("div");
+      row.className = "ach-row" + (unlocked ? " unlocked" : "");
+      row.innerHTML = `
+        <div class="ach-icon">${a.icon}</div>
+        <div class="ach-info">
+          <div class="ach-name">${a.name}</div>
+          <div class="ach-desc">${a.desc}</div>
+          <div class="ach-reward">Reward: ${a.reward} ¢</div>
+        </div>
+        <button class="ach-claim ${claimed ? "done" : unlocked ? "can" : "locked"}">${claimed ? "CLAIMED" : unlocked ? "CLAIM" : "LOCKED"}</button>
+      `;
+      const btn = row.querySelector("button");
+      if (unlocked && !claimed) {
+        btn.addEventListener("click", () => {
+          ensureAudio();
+          const claimedA = claimAdvancement(a.id);
+          if (claimedA) { sfx.claim(); buildList(); }
+        });
+      }
+      list.appendChild(row);
+    });
+  }
+  buildList();
+</script>
+</body>
+</html>
