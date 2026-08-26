@@ -16,6 +16,7 @@ const DEFAULT_SAVE = {
   selectedTrail: "none",
   ownedFoods: ["apple"],
   selectedFood: "apple",
+  powers: {},
   achievements: [],
   claimedAdvancements: [],
   stats: { powerOrbs: 0, multiplierOrbs: 0, mapsPlayed: [] },
@@ -65,6 +66,7 @@ function loadSave() {
       if (typeof save.selectedBackground !== "string") save.selectedBackground = "default";
       if (typeof save.selectedTrail !== "string") save.selectedTrail = "none";
       if (typeof save.selectedFood !== "string") save.selectedFood = "apple";
+      if (!save.powers || typeof save.powers !== "object") save.powers = {};
     }
   } catch (e) { /* first run / storage blocked, use defaults */ }
   return save;
@@ -573,7 +575,90 @@ function activePowerBoosts() {
     if (p.type === "coin") coinBoost += p.value;
     if (p.type === "combo") comboExtendMs += p.value;
   });
+  const pe = activePowerCategoryEffects();
+  scoreBoost += pe.scoreBoost;
+  coinBoost += pe.coinBoost;
+  comboExtendMs += pe.comboExtendMs;
   return { scoreBoost, coinBoost, comboExtendMs };
+}
+
+/* ======================= POWER SHOP (31 buyable power categories, 10 levels each) =======================
+   Each category is bought/equipped one level at a time (own any level you can afford, equip one at a
+   time per category — different categories stack together). Prices follow price(level) = basePrice +
+   priceInc*(level-1), so Slowness is exactly 8000 / 14000 / 20000 / 26000 ... up to level 10 (62000). */
+const POWER_CATEGORIES = [
+  { id: "slowness",   name: "Slowness",        icon: "🐌", type: "speed",  dir: "slow", basePrice: 8000,  priceInc: 6000, desc: "Slows your snake's movement — trade speed for precision control." },
+  { id: "haste",      name: "Haste",           icon: "💨", type: "speed",  dir: "fast", basePrice: 2000,  priceInc: 1600, desc: "Speeds up your snake's base movement for faster, riskier runs." },
+  { id: "overdrive",  name: "Overdrive",       icon: "⚡", type: "score",  basePrice: 1200,  priceInc: 900,  desc: "Boosts score earned from every bite." },
+  { id: "fortune",    name: "Fortune",         icon: "🪙", type: "coin",   basePrice: 1200,  priceInc: 900,  desc: "Boosts coins earned from bonus orbs and score milestones." },
+  { id: "chainreact", name: "Chain Reaction",  icon: "🔥", type: "combo",  basePrice: 1000,  priceInc: 800,  desc: "Extends how long your combo streak stays alive." },
+  { id: "magnetism",  name: "Magnetism",       icon: "🧲", type: "magnet", basePrice: 1500,  priceInc: 1100, desc: "Widens the pull range and duration of magnet orbs." },
+  { id: "aegis",      name: "Aegis",           icon: "🛡️", type: "shield", basePrice: 1500,  priceInc: 1100, desc: "Extends how long shield orbs protect you." },
+  { id: "molasses",   name: "Molasses",        icon: "🫙", type: "speed",  dir: "slow", basePrice: 8500,  priceInc: 6300, desc: "A heavier slow-down for maximum control on tight maps." },
+  { id: "velocity",   name: "Velocity",        icon: "🚀", type: "speed",  dir: "fast", basePrice: 2300,  priceInc: 1700, desc: "A steady speed-up for players chasing high scores fast." },
+  { id: "amplify",    name: "Amplify",         icon: "✴️", type: "score",  basePrice: 1300,  priceInc: 950,  desc: "Further amplifies the score you earn per bite." },
+  { id: "prosperity", name: "Prosperity",      icon: "💰", type: "coin",   basePrice: 1300,  priceInc: 950,  desc: "Further increases coin income during runs." },
+  { id: "combomaster",name: "Combo Master",    icon: "🎯", type: "combo",  basePrice: 1050,  priceInc: 850,  desc: "Keeps your combo window open even longer." },
+  { id: "gravwell",   name: "Gravity Well",    icon: "🌀", type: "magnet", basePrice: 1600,  priceInc: 1150, desc: "Pulls food from even farther away." },
+  { id: "bulwark",    name: "Bulwark",         icon: "🧱", type: "shield", basePrice: 1600,  priceInc: 1150, desc: "Makes shield orbs last noticeably longer." },
+  { id: "tarpit",     name: "Tar Pit",         icon: "🥾", type: "speed",  dir: "slow", basePrice: 9000,  priceInc: 6600, desc: "A dense slow-down field for expert precision players." },
+  { id: "afterburner",name: "Afterburner",     icon: "🔥", type: "speed",  dir: "fast", basePrice: 2600,  priceInc: 1800, desc: "Ignites a stronger burst of extra speed." },
+  { id: "multiplex",  name: "Multiplex",       icon: "➕", type: "score",  basePrice: 1400,  priceInc: 1000, desc: "Stacks additional score gain on top of other boosts." },
+  { id: "goldentouch",name: "Golden Touch",    icon: "✨", type: "coin",   basePrice: 1400,  priceInc: 1000, desc: "Everything you collect is worth a little more coin." },
+  { id: "streaksaver",name: "Streak Saver",    icon: "💫", type: "combo",  basePrice: 1100,  priceInc: 900,  desc: "Gives your combo streak extra breathing room." },
+  { id: "vortexpull", name: "Vortex Pull",     icon: "🌪️", type: "magnet", basePrice: 1700,  priceInc: 1200, desc: "A stronger vortex that draws food in from afar." },
+  { id: "fortress",   name: "Fortress",        icon: "🏰", type: "shield", basePrice: 1700,  priceInc: 1200, desc: "Fortifies your shield's duration even further." },
+  { id: "quicksand",  name: "Quicksand",       icon: "⏳", type: "speed",  dir: "slow", basePrice: 9500,  priceInc: 6900, desc: "The heaviest slow-down for ultimate map control." },
+  { id: "hyperdrive", name: "Hyperdrive",      icon: "🛸", type: "speed",  dir: "fast", basePrice: 2900,  priceInc: 1900, desc: "Pushes your base speed close to its limit." },
+  { id: "scoresurge", name: "Score Surge",     icon: "📈", type: "score",  basePrice: 1500,  priceInc: 1050, desc: "A surging boost to score from every bite." },
+  { id: "coinrush",   name: "Coin Rush",       icon: "🪙", type: "coin",   basePrice: 1500,  priceInc: 1050, desc: "A rush of extra coin income while you play." },
+  { id: "comboextend",name: "Combo Extend",    icon: "🔗", type: "combo",  basePrice: 1150,  priceInc: 950,  desc: "One more stack of combo-window extension." },
+  { id: "attraction",name: "Attraction Field", icon: "🧲", type: "magnet", basePrice: 1800,  priceInc: 1250, desc: "An even wider attraction field for magnet orbs." },
+  { id: "guardian",   name: "Guardian",        icon: "🦾", type: "shield", basePrice: 1800,  priceInc: 1250, desc: "A guardian aura that keeps your shield up longest." },
+  { id: "stasis",     name: "Stasis Field",    icon: "🕸️", type: "speed",  dir: "slow", basePrice: 10000, priceInc: 7200, desc: "Freezes your pace to a crawl for the steadiest control." },
+  { id: "warpspeed",  name: "Warp Speed",      icon: "🌌", type: "speed",  dir: "fast", basePrice: 3200,  priceInc: 2000, desc: "The fastest base speed money can buy." },
+  { id: "ultimate",   name: "Ultimate Boost",  icon: "👑", type: "score",  basePrice: 1600,  priceInc: 1100, desc: "The ultimate stackable score boost." },
+];
+function powerCatById(id) { return POWER_CATEGORIES.find(c => c.id === id) || null; }
+function powerLevelPrice(cat, level) { return cat.basePrice + cat.priceInc * (level - 1); }
+function getPowerState(id) {
+  if (!save.powers[id] || typeof save.powers[id] !== "object") save.powers[id] = { owned: [], equipped: 0 };
+  if (!Array.isArray(save.powers[id].owned)) save.powers[id].owned = [];
+  if (typeof save.powers[id].equipped !== "number") save.powers[id].equipped = 0;
+  return save.powers[id];
+}
+/* human-readable effect line for a given category + level, used on the power detail page */
+function powerLevelEffectLabel(cat, level) {
+  switch (cat.type) {
+    case "speed":
+      return cat.dir === "slow"
+        ? "+" + Math.round(level * 7) + "% slower movement"
+        : "+" + Math.round(Math.min(level * 5, 50)) + "% faster movement";
+    case "score": return "+" + Math.round(level * 2) + "% score per bite";
+    case "coin": return "+" + Math.round(level * 2) + "% coin income";
+    case "combo": return "+" + ((level * 150) / 1000).toFixed(2) + "s combo window";
+    case "magnet": return "+" + (level * 0.3).toFixed(1) + " tile pull · +" + (level * 250 / 1000).toFixed(2) + "s duration";
+    case "shield": return "+" + (level * 300 / 1000).toFixed(2) + "s shield duration";
+    default: return "";
+  }
+}
+/* combines every equipped power-category level into concrete gameplay multipliers/bonuses */
+function activePowerCategoryEffects() {
+  let speedMultSlow = 1, speedMultFast = 1, scoreBoost = 0, coinBoost = 0, comboExtendMs = 0, magnetRangeBoost = 0, magnetDurationMs = 0, shieldDurationMs = 0;
+  POWER_CATEGORIES.forEach(cat => {
+    const st = save.powers[cat.id];
+    if (!st || !st.equipped) return;
+    const lvl = st.equipped;
+    if (cat.type === "speed") {
+      if (cat.dir === "slow") speedMultSlow *= (1 + lvl * 0.07);
+      else speedMultFast *= Math.max(0.5, 1 - lvl * 0.05);
+    } else if (cat.type === "score") scoreBoost += lvl * 0.02;
+    else if (cat.type === "coin") coinBoost += lvl * 0.02;
+    else if (cat.type === "combo") comboExtendMs += lvl * 150;
+    else if (cat.type === "magnet") { magnetRangeBoost += lvl * 0.3; magnetDurationMs += lvl * 250; }
+    else if (cat.type === "shield") shieldDurationMs += lvl * 300;
+  });
+  return { speedMult: speedMultSlow * speedMultFast, scoreBoost, coinBoost, comboExtendMs, magnetRangeBoost, magnetDurationMs, shieldDurationMs };
 }
 
 /* polyfill roundRect just in case */
