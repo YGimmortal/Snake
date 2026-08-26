@@ -51,7 +51,7 @@ let G = null;
 function freshState() {
   const startX = Math.floor(COLS / 2), startY = Math.floor(ROWS / 2);
   const snake = [{ x: startX - 1, y: startY }, { x: startX - 2, y: startY }, { x: startX - 3, y: startY }];
-  const baseSpeed = (SPEED_MS[save.settings.speed] || SPEED_MS.normal) * activePowerCategoryEffects().speedMult;
+  const baseSpeed = SPEED_MS[save.settings.speed] || SPEED_MS.normal;
   return {
     snake, prevSnake: snake.map(s => ({ ...s })),
     dir: { x: 1, y: 0 }, nextDir: { x: 1, y: 0 },
@@ -159,16 +159,6 @@ function updateHud() {
   if (legendFood) {
     const fd = foodById(save.selectedFood);
     legendFood.innerHTML = `<i style="background:${fd.color || "var(--gold)"}"></i>${fd.emoji || "🍎"} ${fd.name || "food"}`;
-  }
-  const chip = document.getElementById("power-chip");
-  if (chip) {
-    const b = activePowerBoosts();
-    const parts = [];
-    if (b.scoreBoost > 0) parts.push(`⚡+${Math.round(b.scoreBoost * 100)}%`);
-    if (b.coinBoost > 0) parts.push(`🪙+${Math.round(b.coinBoost * 100)}%`);
-    if (b.comboExtendMs > 0) parts.push(`🔥+${(b.comboExtendMs / 1000).toFixed(1)}s`);
-    chip.textContent = parts.length ? "POWERS ACTIVE " + parts.join("  ") : "";
-    chip.style.display = parts.length ? "flex" : "none";
   }
 }
 
@@ -454,7 +444,7 @@ function checkLevelUp() {
   const newLevel = 1 + Math.floor(G.score / LEVEL_SCORE_STEP);
   if (newLevel > G.level) {
     G.level = newLevel;
-    const baseSpeed = (SPEED_MS[save.settings.speed] || SPEED_MS.normal) * activePowerCategoryEffects().speedMult;
+    const baseSpeed = SPEED_MS[save.settings.speed] || SPEED_MS.normal;
     G.baseTickMs = Math.max(45, baseSpeed - (G.level - 1) * 4);
     G.flashUntil = performance.now() + 320;
     G.flashColor = "53,231,255";
@@ -493,16 +483,14 @@ function step() {
   const now0 = performance.now();
   const foodMult = (G.megaUntil > now0) ? 3 : (G.multiplierUntil > now0) ? 2 : 1;
   const boosts = activePowerBoosts();
-  const pe = activePowerCategoryEffects();
   const foodDef = foodById(save.selectedFood);
   const baseFoodPts = foodDef.pts || 1;
 
-  // magnet: gently pull food toward the head (Manhattan distance 1–3, widened by the Magnetism power tree)
+  // magnet: gently pull food toward the head (Manhattan distance 1–3)
   if (G.magnetUntil > now0 && G.food) {
     const dx = G.food.x - nx, dy = G.food.y - ny;
     const dist = Math.abs(dx) + Math.abs(dy);
-    const magnetRange = 3 + Math.round(pe.magnetRangeBoost);
-    if (dist >= 1 && dist <= magnetRange) {
+    if (dist >= 1 && dist <= 3) {
       if (Math.abs(dx) >= Math.abs(dy) && dx !== 0) G.food.x -= Math.sign(dx);
       else if (dy !== 0) G.food.y -= Math.sign(dy);
       // keep food inside bounds
@@ -558,8 +546,8 @@ function step() {
       toast("⚡ POWER SURGE", "+" + powerPts + " bonus points", "--gold");
       persist();
     }
-    if (b.kind === "shield") { G.shieldUntil = performance.now() + b.fxMs + pe.shieldDurationMs; sfx.shield(); tryUnlock("shield_bearer"); }
-    if (b.kind === "magnet") { G.magnetUntil = performance.now() + b.fxMs + pe.magnetDurationMs; toast("🧲 MAGNET", "food drifts closer", "--shield"); }
+    if (b.kind === "shield") { G.shieldUntil = performance.now() + b.fxMs; sfx.shield(); tryUnlock("shield_bearer"); }
+    if (b.kind === "magnet") { G.magnetUntil = performance.now() + b.fxMs; toast("🧲 MAGNET", "food drifts closer", "--shield"); }
     if (save.settings.shake) G.shakeUntil = performance.now() + 220;
     G.bonus = null;
     checkLevelUp();
@@ -612,7 +600,6 @@ function drawBackdrop() {
     g.addColorStop(1, stops[2]);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
-    if (bg && bg.pattern) paintBackgroundMotif(ctx, w, h, bg);
 
     const now = performance.now();
     const g1x = w * 0.32, g1y = h * 0.36, g1r = 110;
@@ -667,7 +654,7 @@ function drawFoodDot(cell, color, pulse, emoji) {
   if (emoji) {
     ctx.globalAlpha = 1;
     ctx.shadowBlur = 0;
-    ctx.font = `${Math.floor(CELL * 0.72)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+    ctx.font = `${Math.floor(CELL * 0.58)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(emoji, cx, cy + 1);
@@ -712,7 +699,6 @@ function drawSnake(t) {
     if (ctx.roundRect) ctx.roundRect(x, y, w, w, r); else ctx.rect(x, y, w, w);
     ctx.fill();
     ctx.restore();
-    if (!isHead && skin.pattern) drawSkinCellPattern(ctx, x, y, w, skin.pattern, skin.head);
     if (isHead) {
       ctx.fillStyle = "#04121a";
       const ex = G.dir.x * 3, ey = G.dir.y * 3;

@@ -16,7 +16,6 @@ const DEFAULT_SAVE = {
   selectedTrail: "none",
   ownedFoods: ["apple"],
   selectedFood: "apple",
-  powers: {},
   achievements: [],
   claimedAdvancements: [],
   stats: { powerOrbs: 0, multiplierOrbs: 0, mapsPlayed: [] },
@@ -66,7 +65,6 @@ function loadSave() {
       if (typeof save.selectedBackground !== "string") save.selectedBackground = "default";
       if (typeof save.selectedTrail !== "string") save.selectedTrail = "none";
       if (typeof save.selectedFood !== "string") save.selectedFood = "apple";
-      if (!save.powers || typeof save.powers !== "object") save.powers = {};
     }
   } catch (e) { /* first run / storage blocked, use defaults */ }
   return save;
@@ -202,14 +200,10 @@ const SKIN_TIERS = [
   { key: "epic",      label: "Epic",      count: 15, price: [600, 1150],   power: { type: "score", value: 0.15 } },
   { key: "legendary", label: "Legendary", count: 12, price: [1250, 2450],  power: { type: "combo", value: 900 } },
   { key: "mythic",    label: "Mythic",    count: 8,  price: [2600, 5200],  power: { type: "score", value: 0.30 } },
-  { key: "cosmic",    label: "Cosmic",    count: 8,  price: [5500, 9000],  power: { type: "score", value: 0.40 } },
 ];
-/* visual pattern applied on top of the base gradient — this is what makes skins look
-   like distinct "cool" designs instead of a plain colour ramp */
-const SKIN_PATTERNS = ["scales", "stripes", "studs", "diamond", "hex"];
 function buildSkins() {
   const list = [{
-    id: "horizon", name: "Cyan Horizon", price: 0, tier: "Starter", pattern: "scales",
+    id: "horizon", name: "Cyan Horizon", price: 0, tier: "Starter",
     head: "#eafcff", body: ["#35e7ff", "#8b5cf6"], glow: "rgba(53,231,255,0.6)", power: { type: "score", value: 0.02 }
   }];
   let idx = 0;
@@ -224,8 +218,7 @@ function buildSkins() {
       const name = SKIN_NAME_A[idx % SKIN_NAME_A.length] + " " + SKIN_NAME_B[(idx * 3) % SKIN_NAME_B.length];
       list.push({
         id: tier.key + "_" + i, name, price, tier: tier.label,
-        head, body: [c1, c2], glow: `rgba(${hexToRgbStr(c1)},0.65)`, power: tier.power,
-        pattern: SKIN_PATTERNS[idx % SKIN_PATTERNS.length]
+        head, body: [c1, c2], glow: `rgba(${hexToRgbStr(c1)},0.65)`, power: tier.power
       });
     }
   });
@@ -237,51 +230,6 @@ function skinBodyColor(skin, i, total) {
   if (skin.body === "rainbow") return `hsl(${(performance.now() / 12 + i * 24) % 360} 90% 65%)`;
   if (Array.isArray(skin.body)) return lerpColor(skin.body[0], skin.body[1], total > 1 ? i / (total - 1) : 0);
   return skin.body;
-}
-/* draws a decorative overlay pattern on a single body/head cell so skins read as
-   distinct textured designs (scales, stripes, studs, diamonds, hex-plates)
-   instead of a flat colour swatch. x,y,w describe the square cell in canvas px. */
-function drawSkinCellPattern(ctx, x, y, w, pattern, accent) {
-  ctx.save();
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(x, y, w, w, w * 0.32); else ctx.rect(x, y, w, w);
-  ctx.clip();
-  ctx.globalAlpha = 0.4;
-  ctx.strokeStyle = accent; ctx.fillStyle = accent;
-  ctx.lineWidth = Math.max(1, w * 0.05);
-  const cx = x + w / 2, cy = y + w / 2;
-  switch (pattern) {
-    case "scales":
-      ctx.beginPath(); ctx.arc(cx, y + w * 0.15, w * 0.42, 0, Math.PI, false); ctx.stroke();
-      ctx.beginPath(); ctx.arc(cx, y + w * 0.85, w * 0.42, Math.PI, 0, false); ctx.stroke();
-      break;
-    case "stripes":
-      for (let d = -w; d < w * 2; d += w * 0.4) {
-        ctx.beginPath(); ctx.moveTo(x + d, y); ctx.lineTo(x + d - w, y + w); ctx.stroke();
-      }
-      break;
-    case "studs":
-      ctx.globalAlpha = 0.55;
-      [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7], [0.5, 0.5]].forEach(([px, py]) => {
-        ctx.beginPath(); ctx.arc(x + w * px, y + w * py, w * 0.08, 0, Math.PI * 2); ctx.fill();
-      });
-      break;
-    case "diamond":
-      ctx.beginPath();
-      ctx.moveTo(cx, y + w * 0.1); ctx.lineTo(x + w * 0.9, cy); ctx.lineTo(cx, y + w * 0.9); ctx.lineTo(x + w * 0.1, cy);
-      ctx.closePath(); ctx.stroke();
-      break;
-    case "hex":
-      ctx.beginPath();
-      for (let k = 0; k < 6; k++) {
-        const a = (Math.PI / 3) * k - Math.PI / 6;
-        const px = cx + Math.cos(a) * w * 0.4, py = cy + Math.sin(a) * w * 0.4;
-        k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-      }
-      ctx.closePath(); ctx.stroke();
-      break;
-  }
-  ctx.restore();
 }
 function drawSkinPreview(canvas, skin) {
   const ctx = canvas.getContext("2d");
@@ -298,8 +246,6 @@ function drawSkinPreview(canvas, skin) {
     if (ctx.roundRect) ctx.roundRect(x - r, y - r, r * 2, r * 2, r * 0.6);
     else ctx.rect(x - r, y - r, r * 2, r * 2);
     ctx.fill();
-    ctx.shadowBlur = 0;
-    if (skin.pattern && i !== n - 1) drawSkinCellPattern(ctx, x - r, y - r, r * 2, skin.pattern, skin.head);
   }
 }
 
@@ -311,13 +257,9 @@ const BG_TIERS = [
   { key: "rare",      count: 12, price: [420, 1150],  power: { type: "coin",  value: 0.05 } },
   { key: "epic",      count: 8,  price: [1250, 2500],  power: { type: "score", value: 0.08 } },
   { key: "legendary", count: 4,  price: [2700, 3800],  power: { type: "score", value: 0.12 } },
-  { key: "cosmic",    count: 6,  price: [4000, 6500],  power: { type: "score", value: 0.16 } },
 ];
-/* decorative motif drawn on top of the gradient so backgrounds read as designed
-   scenes (grid, orbits, auroras, scan-lines, hex-field) rather than a plain colour wash */
-const BG_PATTERNS = ["grid", "orbits", "aurora", "scan", "hexfield"];
 function buildBackgrounds() {
-  const list = [{ id: "default", name: "Dusk Horizon", price: 0, tier: "Free", type: "gradient", pattern: "aurora", stops: ["#05040a", "#130a24", "#20122e"], power: { type: "coin", value: 0.03 } }];
+  const list = [{ id: "default", name: "Dusk Horizon", price: 0, tier: "Free", type: "gradient", stops: ["#05040a", "#130a24", "#20122e"], power: { type: "coin", value: 0.02 } }];
   let idx = 0;
   BG_TIERS.forEach(tier => {
     for (let i = 0; i < tier.count; i++) {
@@ -329,8 +271,6 @@ function buildBackgrounds() {
         name: BG_NAME_A[idx % BG_NAME_A.length] + " " + BG_NAME_B[(idx * 5) % BG_NAME_B.length],
         price, tier: tier.key, type: "gradient",
         stops: [hsl2hex(h1, 55, 7), hsl2hex(h2, 65, 13), hsl2hex(h3, 70, 10)],
-        accent: hsl2hex(h1, 85, 55),
-        pattern: BG_PATTERNS[idx % BG_PATTERNS.length],
         power: tier.power
       });
     }
@@ -340,63 +280,10 @@ function buildBackgrounds() {
 }
 const BACKGROUNDS = buildBackgrounds();
 function backgroundById(id) { return BACKGROUNDS.find(b => b.id === id) || BACKGROUNDS[0]; }
-/* shared canvas renderer for a background's gradient + motif — used by both the
-   in-game backdrop and the shop preview swatch so they match exactly */
-function paintBackgroundMotif(ctx, w, h, bg) {
-  ctx.save();
-  ctx.globalAlpha = 0.5;
-  ctx.strokeStyle = bg.accent || "#35e7ff";
-  ctx.fillStyle = bg.accent || "#35e7ff";
-  ctx.lineWidth = 1;
-  switch (bg.pattern) {
-    case "grid":
-      ctx.globalAlpha = 0.22;
-      for (let x = 0; x < w; x += w / 10) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-      for (let y = 0; y < h; y += h / 10) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-      break;
-    case "orbits":
-      ctx.globalAlpha = 0.28;
-      for (let r = Math.min(w, h) * 0.12; r < Math.max(w, h) * 0.7; r += Math.min(w, h) * 0.14) {
-        ctx.beginPath(); ctx.arc(w * 0.5, h * 0.5, r, 0, Math.PI * 2); ctx.stroke();
-      }
-      break;
-    case "aurora":
-      ctx.globalAlpha = 0.25;
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, h * (0.25 + i * 0.2));
-        ctx.bezierCurveTo(w * 0.3, h * (0.1 + i * 0.2), w * 0.7, h * (0.4 + i * 0.2), w, h * (0.2 + i * 0.2));
-        ctx.lineWidth = h * 0.05;
-        ctx.stroke();
-      }
-      break;
-    case "scan":
-      ctx.globalAlpha = 0.2;
-      for (let y = 0; y < h; y += 6) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-      break;
-    case "hexfield":
-      ctx.globalAlpha = 0.24;
-      const size = Math.min(w, h) / 6;
-      for (let row = 0; row < h / size + 2; row++) {
-        for (let col = 0; col < w / size + 2; col++) {
-          const cx = col * size * 1.5, cy = row * size * 1.7 + (col % 2 ? size * 0.85 : 0);
-          ctx.beginPath();
-          for (let k = 0; k < 6; k++) {
-            const a = (Math.PI / 3) * k;
-            const px = cx + Math.cos(a) * size * 0.5, py = cy + Math.sin(a) * size * 0.5;
-            k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-          }
-          ctx.closePath(); ctx.stroke();
-        }
-      }
-      break;
-  }
-  ctx.restore();
-}
 
 /* ======================= TRAILS (cosmetic shop #3) ======================= */
 const TRAILS = [
-  { id: "none",         name: "No Trail",      price: 0,    color: null,      power: { type: "coin", value: 0.01 } },
+  { id: "none",         name: "No Trail",      price: 0,    color: null,      power: null },
   { id: "trail_cyan",   name: "Cyan Trail",    price: 120,  color: "#35e7ff",  power: { type: "coin",  value: 0.03 } },
   { id: "trail_purple", name: "Violet Trail",  price: 120,  color: "#8b5cf6",  power: { type: "score", value: 0.03 } },
   { id: "trail_pink",   name: "Magenta Trail", price: 300,  color: "#ff5fa2",  power: { type: "combo", value: 200 } },
@@ -410,15 +297,12 @@ const TRAILS = [
   { id: "trail_void",   name: "Void Trail",    price: 2800, color: "#6b5bff",  power: { type: "coin",  value: 0.12 } },
   { id: "trail_solar",  name: "Solar Trail",   price: 3200, color: "#ffb347",  power: { type: "combo", value: 600 } },
   { id: "trail_neon",   name: "Neon Streak",   price: 3800, color: "#39ff14",  power: { type: "score", value: 0.15 } },
-  { id: "trail_comet",  name: "Comet Trail",   price: 4600, color: "#ff5fa2",  power: { type: "combo", value: 800 } },
-  { id: "trail_aurora", name: "Aurora Trail",  price: 5400, color: "#7CFF6B",  power: { type: "score", value: 0.18 } },
-  { id: "trail_cosmic", name: "Cosmic Trail",  price: 6200, color: "rainbow",  power: { type: "coin",  value: 0.16 } },
 ];
 function trailById(id) { return TRAILS.find(t => t.id === id) || TRAILS[0]; }
 
 /* ======================= FOODS (shop #4 — score per bite) ======================= */
 const FOODS = [
-  { id: "apple",      name: "Apple",       emoji: "🍎", price: 0,    pts: 1,  color: "#ff5d6c", power: { type: "score", value: 0.01 } },
+  { id: "apple",      name: "Apple",       emoji: "🍎", price: 0,    pts: 1,  color: "#ff5d6c", power: null },
   { id: "banana",     name: "Banana",      emoji: "🍌", price: 80,   pts: 5,  color: "#ffd166", power: { type: "score", value: 0.02 } },
   { id: "mango",      name: "Mango",       emoji: "🥭", price: 150,  pts: 8,  color: "#ff9d3d", power: { type: "coin",  value: 0.03 } },
   { id: "grape",      name: "Grape",       emoji: "🍇", price: 200,  pts: 10, color: "#8b5cf6", power: { type: "combo", value: 150 } },
@@ -441,8 +325,6 @@ const FOODS = [
   { id: "crystal_berry",name: "Crystal Berry",emoji: "💎", price: 3500, pts: 100,color: "#bdf4ff", power: { type: "score", value: 0.15 } },
   { id: "void_fruit", name: "Void Fruit",  emoji: "🌑", price: 4200, pts: 120,color: "#6b5bff", power: { type: "combo", value: 700 } },
   { id: "neon_melon", name: "Neon Melon",  emoji: "🟢", price: 5000, pts: 150,color: "#39ff14", power: { type: "score", value: 0.18 } },
-  { id: "phoenix_fruit",name: "Phoenix Fruit",emoji: "🔥", price: 6000, pts: 180,color: "#ff6b3d", power: { type: "combo", value: 900 } },
-  { id: "cosmic_pear",name: "Cosmic Pear", emoji: "🍐", price: 7200, pts: 210,color: "#c9a6ff", power: { type: "score", value: 0.22 } },
 ];
 function foodById(id) { return FOODS.find(f => f.id === id) || FOODS[0]; }
 
@@ -575,90 +457,7 @@ function activePowerBoosts() {
     if (p.type === "coin") coinBoost += p.value;
     if (p.type === "combo") comboExtendMs += p.value;
   });
-  const pe = activePowerCategoryEffects();
-  scoreBoost += pe.scoreBoost;
-  coinBoost += pe.coinBoost;
-  comboExtendMs += pe.comboExtendMs;
   return { scoreBoost, coinBoost, comboExtendMs };
-}
-
-/* ======================= POWER SHOP (31 buyable power categories, 10 levels each) =======================
-   Each category is bought/equipped one level at a time (own any level you can afford, equip one at a
-   time per category — different categories stack together). Prices follow price(level) = basePrice +
-   priceInc*(level-1), so Slowness is exactly 8000 / 14000 / 20000 / 26000 ... up to level 10 (62000). */
-const POWER_CATEGORIES = [
-  { id: "slowness",   name: "Slowness",        icon: "🐌", type: "speed",  dir: "slow", basePrice: 8000,  priceInc: 6000, desc: "Slows your snake's movement — trade speed for precision control." },
-  { id: "haste",      name: "Haste",           icon: "💨", type: "speed",  dir: "fast", basePrice: 2000,  priceInc: 1600, desc: "Speeds up your snake's base movement for faster, riskier runs." },
-  { id: "overdrive",  name: "Overdrive",       icon: "⚡", type: "score",  basePrice: 1200,  priceInc: 900,  desc: "Boosts score earned from every bite." },
-  { id: "fortune",    name: "Fortune",         icon: "🪙", type: "coin",   basePrice: 1200,  priceInc: 900,  desc: "Boosts coins earned from bonus orbs and score milestones." },
-  { id: "chainreact", name: "Chain Reaction",  icon: "🔥", type: "combo",  basePrice: 1000,  priceInc: 800,  desc: "Extends how long your combo streak stays alive." },
-  { id: "magnetism",  name: "Magnetism",       icon: "🧲", type: "magnet", basePrice: 1500,  priceInc: 1100, desc: "Widens the pull range and duration of magnet orbs." },
-  { id: "aegis",      name: "Aegis",           icon: "🛡️", type: "shield", basePrice: 1500,  priceInc: 1100, desc: "Extends how long shield orbs protect you." },
-  { id: "molasses",   name: "Molasses",        icon: "🫙", type: "speed",  dir: "slow", basePrice: 8500,  priceInc: 6300, desc: "A heavier slow-down for maximum control on tight maps." },
-  { id: "velocity",   name: "Velocity",        icon: "🚀", type: "speed",  dir: "fast", basePrice: 2300,  priceInc: 1700, desc: "A steady speed-up for players chasing high scores fast." },
-  { id: "amplify",    name: "Amplify",         icon: "✴️", type: "score",  basePrice: 1300,  priceInc: 950,  desc: "Further amplifies the score you earn per bite." },
-  { id: "prosperity", name: "Prosperity",      icon: "💰", type: "coin",   basePrice: 1300,  priceInc: 950,  desc: "Further increases coin income during runs." },
-  { id: "combomaster",name: "Combo Master",    icon: "🎯", type: "combo",  basePrice: 1050,  priceInc: 850,  desc: "Keeps your combo window open even longer." },
-  { id: "gravwell",   name: "Gravity Well",    icon: "🌀", type: "magnet", basePrice: 1600,  priceInc: 1150, desc: "Pulls food from even farther away." },
-  { id: "bulwark",    name: "Bulwark",         icon: "🧱", type: "shield", basePrice: 1600,  priceInc: 1150, desc: "Makes shield orbs last noticeably longer." },
-  { id: "tarpit",     name: "Tar Pit",         icon: "🥾", type: "speed",  dir: "slow", basePrice: 9000,  priceInc: 6600, desc: "A dense slow-down field for expert precision players." },
-  { id: "afterburner",name: "Afterburner",     icon: "🔥", type: "speed",  dir: "fast", basePrice: 2600,  priceInc: 1800, desc: "Ignites a stronger burst of extra speed." },
-  { id: "multiplex",  name: "Multiplex",       icon: "➕", type: "score",  basePrice: 1400,  priceInc: 1000, desc: "Stacks additional score gain on top of other boosts." },
-  { id: "goldentouch",name: "Golden Touch",    icon: "✨", type: "coin",   basePrice: 1400,  priceInc: 1000, desc: "Everything you collect is worth a little more coin." },
-  { id: "streaksaver",name: "Streak Saver",    icon: "💫", type: "combo",  basePrice: 1100,  priceInc: 900,  desc: "Gives your combo streak extra breathing room." },
-  { id: "vortexpull", name: "Vortex Pull",     icon: "🌪️", type: "magnet", basePrice: 1700,  priceInc: 1200, desc: "A stronger vortex that draws food in from afar." },
-  { id: "fortress",   name: "Fortress",        icon: "🏰", type: "shield", basePrice: 1700,  priceInc: 1200, desc: "Fortifies your shield's duration even further." },
-  { id: "quicksand",  name: "Quicksand",       icon: "⏳", type: "speed",  dir: "slow", basePrice: 9500,  priceInc: 6900, desc: "The heaviest slow-down for ultimate map control." },
-  { id: "hyperdrive", name: "Hyperdrive",      icon: "🛸", type: "speed",  dir: "fast", basePrice: 2900,  priceInc: 1900, desc: "Pushes your base speed close to its limit." },
-  { id: "scoresurge", name: "Score Surge",     icon: "📈", type: "score",  basePrice: 1500,  priceInc: 1050, desc: "A surging boost to score from every bite." },
-  { id: "coinrush",   name: "Coin Rush",       icon: "🪙", type: "coin",   basePrice: 1500,  priceInc: 1050, desc: "A rush of extra coin income while you play." },
-  { id: "comboextend",name: "Combo Extend",    icon: "🔗", type: "combo",  basePrice: 1150,  priceInc: 950,  desc: "One more stack of combo-window extension." },
-  { id: "attraction",name: "Attraction Field", icon: "🧲", type: "magnet", basePrice: 1800,  priceInc: 1250, desc: "An even wider attraction field for magnet orbs." },
-  { id: "guardian",   name: "Guardian",        icon: "🦾", type: "shield", basePrice: 1800,  priceInc: 1250, desc: "A guardian aura that keeps your shield up longest." },
-  { id: "stasis",     name: "Stasis Field",    icon: "🕸️", type: "speed",  dir: "slow", basePrice: 10000, priceInc: 7200, desc: "Freezes your pace to a crawl for the steadiest control." },
-  { id: "warpspeed",  name: "Warp Speed",      icon: "🌌", type: "speed",  dir: "fast", basePrice: 3200,  priceInc: 2000, desc: "The fastest base speed money can buy." },
-  { id: "ultimate",   name: "Ultimate Boost",  icon: "👑", type: "score",  basePrice: 1600,  priceInc: 1100, desc: "The ultimate stackable score boost." },
-];
-function powerCatById(id) { return POWER_CATEGORIES.find(c => c.id === id) || null; }
-function powerLevelPrice(cat, level) { return cat.basePrice + cat.priceInc * (level - 1); }
-function getPowerState(id) {
-  if (!save.powers[id] || typeof save.powers[id] !== "object") save.powers[id] = { owned: [], equipped: 0 };
-  if (!Array.isArray(save.powers[id].owned)) save.powers[id].owned = [];
-  if (typeof save.powers[id].equipped !== "number") save.powers[id].equipped = 0;
-  return save.powers[id];
-}
-/* human-readable effect line for a given category + level, used on the power detail page */
-function powerLevelEffectLabel(cat, level) {
-  switch (cat.type) {
-    case "speed":
-      return cat.dir === "slow"
-        ? "+" + Math.round(level * 7) + "% slower movement"
-        : "+" + Math.round(Math.min(level * 5, 50)) + "% faster movement";
-    case "score": return "+" + Math.round(level * 2) + "% score per bite";
-    case "coin": return "+" + Math.round(level * 2) + "% coin income";
-    case "combo": return "+" + ((level * 150) / 1000).toFixed(2) + "s combo window";
-    case "magnet": return "+" + (level * 0.3).toFixed(1) + " tile pull · +" + (level * 250 / 1000).toFixed(2) + "s duration";
-    case "shield": return "+" + (level * 300 / 1000).toFixed(2) + "s shield duration";
-    default: return "";
-  }
-}
-/* combines every equipped power-category level into concrete gameplay multipliers/bonuses */
-function activePowerCategoryEffects() {
-  let speedMultSlow = 1, speedMultFast = 1, scoreBoost = 0, coinBoost = 0, comboExtendMs = 0, magnetRangeBoost = 0, magnetDurationMs = 0, shieldDurationMs = 0;
-  POWER_CATEGORIES.forEach(cat => {
-    const st = save.powers[cat.id];
-    if (!st || !st.equipped) return;
-    const lvl = st.equipped;
-    if (cat.type === "speed") {
-      if (cat.dir === "slow") speedMultSlow *= (1 + lvl * 0.07);
-      else speedMultFast *= Math.max(0.5, 1 - lvl * 0.05);
-    } else if (cat.type === "score") scoreBoost += lvl * 0.02;
-    else if (cat.type === "coin") coinBoost += lvl * 0.02;
-    else if (cat.type === "combo") comboExtendMs += lvl * 150;
-    else if (cat.type === "magnet") { magnetRangeBoost += lvl * 0.3; magnetDurationMs += lvl * 250; }
-    else if (cat.type === "shield") shieldDurationMs += lvl * 300;
-  });
-  return { speedMult: speedMultSlow * speedMultFast, scoreBoost, coinBoost, comboExtendMs, magnetRangeBoost, magnetDurationMs, shieldDurationMs };
 }
 
 /* polyfill roundRect just in case */
